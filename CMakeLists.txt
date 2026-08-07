@@ -97,6 +97,14 @@ option(LIBATRINIK_PACKAGE_LAYOUT
 
 set(ATRINIK_TOOLKIT atrinik-core)
 
+# This target is deliberately configured before the toolkit dependencies. It
+# can also be built and installed directly from pathfinding/ without them.
+set(ATRINIK_PATHFINDING_PARENT_TESTING false)
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR AND BUILD_TESTING)
+    set(ATRINIK_PATHFINDING_PARENT_TESTING true)
+endif ()
+add_subdirectory(pathfinding)
+
 # cURL is required by the metaserver.
 find_package(CURL REQUIRED)
 set(HAVE_CURL true)
@@ -337,6 +345,27 @@ else ()
 endif ()
 
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    install(TARGETS atrinik-pathfinding
+        EXPORT AtrinikPathfindingTargets
+        ARCHIVE DESTINATION lib)
+    install(DIRECTORY pathfinding/include/ DESTINATION include)
+    install(EXPORT AtrinikPathfindingTargets
+        FILE AtrinikPathfindingTargets.cmake
+        NAMESPACE Atrinik::
+        DESTINATION lib/cmake/AtrinikPathfinding)
+    configure_package_config_file(
+        pathfinding/cmake/AtrinikPathfindingConfig.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/AtrinikPathfindingConfig.cmake"
+        INSTALL_DESTINATION lib/cmake/AtrinikPathfinding)
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/AtrinikPathfindingConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/AtrinikPathfindingConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/AtrinikPathfindingConfigVersion.cmake"
+        DESTINATION lib/cmake/AtrinikPathfinding)
+
     install(TARGETS ${ATRINIK_TOOLKIT}
         EXPORT LibAtrinikTargets
         ARCHIVE DESTINATION lib)
