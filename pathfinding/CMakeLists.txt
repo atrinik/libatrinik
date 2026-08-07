@@ -11,7 +11,8 @@ add_library(atrinik-pathfinding STATIC pathfinding.c)
 add_library(Atrinik::Pathfinding ALIAS atrinik-pathfinding)
 set_target_properties(atrinik-pathfinding PROPERTIES
     EXPORT_NAME Pathfinding
-    OUTPUT_NAME atrinik-pathfinding)
+    OUTPUT_NAME atrinik-pathfinding
+    POSITION_INDEPENDENT_CODE ON)
 target_compile_features(atrinik-pathfinding PUBLIC c_std_17)
 target_include_directories(atrinik-pathfinding
     PUBLIC
@@ -32,7 +33,7 @@ if (BUILD_TESTING AND
     add_subdirectory(tests)
 endif ()
 
-if (ATRINIK_PATHFINDING_STANDALONE)
+if (ATRINIK_PATHFINDING_STANDALONE OR ATRINIK_PATHFINDING_PARENT_INSTALL)
     install(TARGETS atrinik-pathfinding
         EXPORT AtrinikPathfindingTargets
         ARCHIVE DESTINATION lib)

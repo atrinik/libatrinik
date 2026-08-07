@@ -184,6 +184,7 @@ static bool test_statuses_and_partial(atrinik_pf_context *context) {
     result = atrinik_pf_search(context, &adapter, 0U, &options);
     CHECK(result.status == ATRINIK_PF_PARTIAL);
     CHECK(result.termination == ATRINIK_PF_TERMINATION_CANCELLED);
+    CHECK(result.metrics.examined_transitions == 0U);
     graph.cancel_after = 0U;
     return true;
 }
@@ -218,6 +219,12 @@ static bool test_limits_errors_and_validation(atrinik_pf_context *context) {
     CHECK(result.status == ATRINIK_PF_LIMIT_REACHED);
 
     options.max_frontier = 0U;
+    options.max_transitions = 1U;
+    result = atrinik_pf_search(context, &adapter, 0U, &options);
+    CHECK(result.status == ATRINIK_PF_LIMIT_REACHED);
+    CHECK(result.metrics.examined_transitions == 1U);
+
+    options.max_transitions = 0U;
     options.algorithm = ATRINIK_PF_DIJKSTRA;
     result = atrinik_pf_search(context, &adapter, 0U, &options);
     CHECK(result.status == ATRINIK_PF_COST_OVERFLOW);
@@ -346,6 +353,79 @@ static bool test_reachability(atrinik_pf_context *context) {
     return true;
 }
 
+static uint32_t next_random(uint32_t *state) {
+    uint32_t value = *state;
+
+    value ^= value << 13U;
+    value ^= value >> 17U;
+    value ^= value << 5U;
+    *state = value;
+    return value;
+}
+
+static bool test_dijkstra_against_reference(atrinik_pf_context *context) {
+    enum {
+        NODE_COUNT = 24,
+        CASE_COUNT = 100,
+        MAX_EDGES = NODE_COUNT * NODE_COUNT
+    };
+    edge edges[MAX_EDGES];
+    uint64_t distances[NODE_COUNT];
+    uint32_t random_state = UINT32_C(0x8a71c4d3);
+    atrinik_pf_options options;
+
+    atrinik_pf_options_init(&options);
+    options.algorithm = ATRINIK_PF_DIJKSTRA;
+    for (size_t test_case = 0U; test_case < CASE_COUNT; test_case++) {
+        size_t edge_count = 0U;
+        for (size_t from = 0U; from < NODE_COUNT; from++) {
+            for (size_t to = 0U; to < NODE_COUNT; to++) {
+                if (from != to && next_random(&random_state) % 5U == 0U) {
+                    edges[edge_count++] = (edge){
+                        .from = from,
+                        .to = to,
+                        .cost = next_random(&random_state) % 20U + 1U,
+                    };
+                }
+            }
+        }
+
+        for (size_t i = 0U; i < NODE_COUNT; i++) {
+            distances[i] = UINT64_MAX;
+        }
+        distances[0] = 0U;
+        for (size_t pass = 1U; pass < NODE_COUNT; pass++) {
+            bool changed = false;
+            for (size_t i = 0U; i < edge_count; i++) {
+                if (distances[edges[i].from] != UINT64_MAX &&
+                    distances[edges[i].from] <= UINT64_MAX - edges[i].cost &&
+                    distances[edges[i].from] + edges[i].cost < distances[edges[i].to]) {
+                    distances[edges[i].to] = distances[edges[i].from] + edges[i].cost;
+                    changed = true;
+                }
+            }
+            if (!changed) {
+                break;
+            }
+        }
+
+        fixture graph = {
+            .edges = edges,
+            .edge_count = edge_count,
+            .goal = NODE_COUNT - 1U,
+        };
+        atrinik_pf_adapter adapter = make_adapter(&graph);
+        atrinik_pf_result result = atrinik_pf_search(context, &adapter, 0U, &options);
+        if (distances[NODE_COUNT - 1U] == UINT64_MAX) {
+            CHECK(result.status == ATRINIK_PF_NO_PATH);
+        } else {
+            CHECK(result.status == ATRINIK_PF_FOUND);
+            CHECK(result.metrics.total_cost == distances[NODE_COUNT - 1U]);
+        }
+    }
+    return true;
+}
+
 int main(void) {
     atrinik_pf_context *context = atrinik_pf_context_create();
     if (context == NULL) {
@@ -356,6 +436,7 @@ int main(void) {
                   test_limits_errors_and_validation(context) &&
                   test_zero_cost_and_large_ids(context) &&
                   test_frontier_updates_and_reopening(context) && test_reachability(context);
+    passed = passed && test_dijkstra_against_reference(context);
     atrinik_pf_context_destroy(context);
     return passed ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -70,6 +70,7 @@ typedef enum atrinik_pf_termination {
 typedef struct atrinik_pf_metrics {
     size_t expanded;
     size_t generated;
+    size_t examined_transitions;
     size_t peak_frontier;
     uint64_t total_cost;
 } atrinik_pf_metrics;
@@ -132,6 +133,7 @@ typedef struct atrinik_pf_options {
     atrinik_pf_algorithm algorithm;
     size_t max_expanded;
     size_t max_generated;
+    size_t max_transitions;
     size_t max_frontier;
     bool return_partial;
 } atrinik_pf_options;
@@ -150,10 +152,11 @@ void atrinik_pf_context_destroy(atrinik_pf_context *context);
  * this context or until it is destroyed. A context must not be used
  * concurrently, but independent contexts are safe to use concurrently.
  *
- * A* requires a heuristic. Explicit partial results additionally require a
- * partial_rank callback; lower rank is better. Breadth-first search treats all
- * transitions as unit cost. Dijkstra ignores the heuristic. Greedy
- * best-first requires a heuristic and uses it without accumulated cost.
+ * A* requires a heuristic; optimality requires that heuristic to be
+ * admissible. Explicit partial results additionally require a partial_rank
+ * callback; lower rank is better. Breadth-first search treats all transitions
+ * as unit cost. Dijkstra ignores the heuristic. Greedy best-first requires a
+ * heuristic and uses it without accumulated cost.
  */
 atrinik_pf_result atrinik_pf_search(atrinik_pf_context *context,
                                     const atrinik_pf_adapter *adapter,

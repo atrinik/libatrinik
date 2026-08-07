@@ -337,6 +337,17 @@ static bool pf_emit_transition(void *emit_context, const atrinik_pf_transition *
         pf_stop(context, ATRINIK_PF_ADAPTER_ERROR, ATRINIK_PF_TERMINATION_ADAPTER_ERROR);
         return false;
     }
+    if (context->adapter->cancelled != NULL &&
+        context->adapter->cancelled(context->adapter->context)) {
+        pf_stop(context, ATRINIK_PF_CANCELLED, ATRINIK_PF_TERMINATION_CANCELLED);
+        return false;
+    }
+    if (context->options.max_transitions != 0U &&
+        context->metrics.examined_transitions >= context->options.max_transitions) {
+        pf_stop(context, ATRINIK_PF_LIMIT_REACHED, ATRINIK_PF_TERMINATION_LIMIT);
+        return false;
+    }
+    context->metrics.examined_transitions++;
 
     if (context->reachability) {
         if (pf_find_node(context, transition->state) != PF_NONE) {

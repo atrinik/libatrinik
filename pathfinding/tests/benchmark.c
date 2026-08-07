@@ -73,12 +73,13 @@ int main(void) {
     atrinik_pf_result result = atrinik_pf_search(context, &adapter, 0U, &options);
     clock_t elapsed = clock() - start;
     printf("status=%s cost=%" PRIu64 " steps=%zu expanded=%zu generated=%zu "
-           "peak_frontier=%zu seconds=%.6f\n",
+           "transitions=%zu peak_frontier=%zu seconds=%.6f\n",
            atrinik_pf_status_string(result.status),
            result.metrics.total_cost,
            result.step_count,
            result.metrics.expanded,
            result.metrics.generated,
+           result.metrics.examined_transitions,
            result.metrics.peak_frontier,
            (double)elapsed / (double)CLOCKS_PER_SEC);
     atrinik_pf_context_destroy(context);
