@@ -333,6 +333,9 @@ static bool pf_emit_transition(void *emit_context, const atrinik_pf_transition *
     uint64_t step_cost;
     uint64_t tentative_cost;
 
+    if (context->stopped) {
+        return false;
+    }
     if (transition == NULL) {
         pf_stop(context, ATRINIK_PF_ADAPTER_ERROR, ATRINIK_PF_TERMINATION_ADAPTER_ERROR);
         return false;

@@ -23,6 +23,7 @@ typedef struct fixture {
     size_t cancel_calls;
     atrinik_pf_state_id fail_state;
     bool fail_enabled;
+    bool ignore_emit_stop;
 } fixture;
 
 #define CHECK(condition)                                                                  \
@@ -47,7 +48,7 @@ neighbors(void *context, atrinik_pf_state_id state, atrinik_pf_emit_fn emit, voi
                 .cost = graph->edges[i].cost,
                 .data = graph->edges[i].data,
             };
-            if (!emit(emit_context, &transition)) {
+            if (!emit(emit_context, &transition) && !graph->ignore_emit_stop) {
                 return false;
             }
         }
@@ -271,6 +272,30 @@ static bool test_zero_cost_and_large_ids(atrinik_pf_context *context) {
     return true;
 }
 
+static bool test_adapter_cannot_emit_after_stop(atrinik_pf_context *context) {
+    static const edge edges[] = {
+        {0U, 1U, UINT64_MAX, 0U},
+        {1U, 2U, 1U, 0U},
+        {1U, 3U, 0U, 0U},
+    };
+    fixture graph = {
+        .edges = edges,
+        .edge_count = sizeof(edges) / sizeof(edges[0]),
+        .goal = 9U,
+        .ignore_emit_stop = true,
+    };
+    atrinik_pf_adapter adapter = make_adapter(&graph);
+    atrinik_pf_options options;
+
+    atrinik_pf_options_init(&options);
+    options.algorithm = ATRINIK_PF_DIJKSTRA;
+    atrinik_pf_result result = atrinik_pf_search(context, &adapter, 0U, &options);
+    CHECK(result.status == ATRINIK_PF_COST_OVERFLOW);
+    CHECK(result.metrics.generated == 2U);
+    CHECK(result.metrics.examined_transitions == 2U);
+    return true;
+}
+
 static bool test_frontier_updates_and_reopening(atrinik_pf_context *context) {
     static const edge decrease_edges[] = {
         {0U, 1U, 10U, 0U},
@@ -435,6 +460,7 @@ int main(void) {
     bool passed = test_algorithms_and_tie_breaking(context) && test_statuses_and_partial(context) &&
                   test_limits_errors_and_validation(context) &&
                   test_zero_cost_and_large_ids(context) &&
+                  test_adapter_cannot_emit_after_stop(context) &&
                   test_frontier_updates_and_reopening(context) && test_reachability(context);
     passed = passed && test_dijkstra_against_reference(context);
     atrinik_pf_context_destroy(context);
